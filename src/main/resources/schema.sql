@@ -1,35 +1,81 @@
 -- ==========================================
--- 1. EXTENSIONES Y DROPS
+-- 1. ESQUEMAS, EXTENSIONES Y DROPS
 -- ==========================================
+CREATE SCHEMA IF NOT EXISTS auth;;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";;
 
+-- Drops ordenados considerando dependencias de esquemas cruzados
 DROP TABLE IF EXISTS order_items CASCADE;;
 DROP TABLE IF EXISTS orders CASCADE;;
 DROP TABLE IF EXISTS products CASCADE;;
 DROP TABLE IF EXISTS modelos CASCADE;;
 DROP TABLE IF EXISTS marcas CASCADE;;
 DROP TABLE IF EXISTS categories CASCADE;;
-DROP TABLE IF EXISTS usuarios_roles CASCADE;;
-DROP TABLE IF EXISTS usuarios CASCADE;;
-DROP TABLE IF EXISTS roles CASCADE;;
-DROP TABLE IF EXISTS permisos CASCADE;;
-DROP TABLE IF EXISTS roles_permisos CASCADE;;
+DROP TABLE IF EXISTS auth.usuarios_roles CASCADE;;
+DROP TABLE IF EXISTS auth.usuarios CASCADE;;
+DROP TABLE IF EXISTS auth.roles CASCADE;;
+DROP TABLE IF EXISTS auth.permisos CASCADE;;
+DROP TABLE IF EXISTS auth.roles_permisos CASCADE;;
 
 -- ==========================================
--- 2. TABLAS (DDL)
+-- 2. TABLAS (DDL) - MÓDULO AUTH
 -- ==========================================
-CREATE TABLE usuarios (
-                          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                          username VARCHAR(50) NOT NULL UNIQUE,
-                          email VARCHAR(100) NOT NULL UNIQUE,
-                          password VARCHAR(255) NOT NULL,
-                          rol VARCHAR(20) NOT NULL DEFAULT 'ROLE_USER',
-                          estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
-                          creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                          actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE auth.usuarios (
+                               id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                               username VARCHAR(50) NOT NULL UNIQUE,
+                               email VARCHAR(100) NOT NULL UNIQUE,
+                               password VARCHAR(255) NOT NULL,
+                               rol VARCHAR(20) NOT NULL DEFAULT 'ROLE_USER',
+                               estado VARCHAR(20) NOT NULL DEFAULT 'ACTIVO',
+                               creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                               actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );;
 
-CREATE INDEX idx_usuarios_username ON usuarios(username);;
+CREATE INDEX idx_usuarios_username ON auth.usuarios(username);;
+
+-- Tabla: roles (Catálogo de Roles del sistema)
+CREATE TABLE auth.roles (
+                            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                            nombre VARCHAR(50) NOT NULL UNIQUE,
+                            descripcion TEXT,
+                            creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);;
+
+-- Tabla de Permisos
+CREATE TABLE auth.permisos (
+                               id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                               nombre VARCHAR(100) NOT NULL UNIQUE,
+                               descripcion TEXT,
+                               creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);;
+
+-- Tabla Intermedia: Roles y Permisos (Muchos a Muchos)
+CREATE TABLE auth.roles_permisos (
+                                     rol_id UUID NOT NULL REFERENCES auth.roles(id) ON DELETE CASCADE,
+                                     permiso_id UUID NOT NULL REFERENCES auth.permisos(id) ON DELETE CASCADE,
+                                     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                     PRIMARY KEY (rol_id, permiso_id)
+);;
+
+-- Tabla Intermedia: Usuarios y Roles (Muchos a Muchos)
+CREATE TABLE auth.usuarios_roles (
+                                     usuario_id UUID NOT NULL REFERENCES auth.usuarios(id) ON DELETE CASCADE,
+                                     rol_id UUID NOT NULL REFERENCES auth.roles(id) ON DELETE CASCADE,
+                                     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                     PRIMARY KEY (usuario_id, rol_id)
+);;
+
+CREATE INDEX idx_roles_permisos_rol ON auth.roles_permisos(rol_id);;
+CREATE INDEX idx_roles_permisos_permiso ON auth.roles_permisos(permiso_id);;
+CREATE INDEX idx_usuarios_roles_usuario ON auth.usuarios_roles(usuario_id);;
+CREATE INDEX idx_usuarios_roles_rol ON auth.usuarios_roles(rol_id);;
+
+CREATE INDEX idx_permisos_nombre ON auth.permisos(nombre);;
+CREATE INDEX idx_roles_nombre ON auth.roles(nombre);;
+
+-- ==========================================
+-- 2.1. TABLAS (DDL) - NEGOCIO / PUBLIC
+-- ==========================================
 
 -- Tabla: marcas (Catálogo de marcas de autos)
 CREATE TABLE marcas (
@@ -41,46 +87,6 @@ CREATE TABLE marcas (
 );;
 
 CREATE INDEX idx_marcas_nombre ON marcas(nombre);;
-
--- Tabla: roles (Catálogo de Roles del sistema)
-CREATE TABLE roles (
-                       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                       nombre VARCHAR(50) NOT NULL UNIQUE,
-                       descripcion TEXT,
-                       creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);;
-
--- Tabla de Permisos
-CREATE TABLE permisos (
-                          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                          nombre VARCHAR(100) NOT NULL UNIQUE,
-                          descripcion TEXT,
-                          creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);;
-
--- Tabla Intermedia: Roles y Permisos (Muchos a Muchos) con creado_en
-CREATE TABLE roles_permisos (
-                                rol_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-                                permiso_id UUID NOT NULL REFERENCES permisos(id) ON DELETE CASCADE,
-                                creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                PRIMARY KEY (rol_id, permiso_id)
-);;
-
--- Tabla Intermedia: Usuarios y Roles (Muchos a Muchos) - NUEVO MÓDULO
-CREATE TABLE usuarios_roles (
-                                usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-                                rol_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-                                creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                PRIMARY KEY (usuario_id, rol_id)
-);;
-
-CREATE INDEX idx_roles_permisos_rol ON roles_permisos(rol_id);;
-CREATE INDEX idx_roles_permisos_permiso ON roles_permisos(permiso_id);;
-CREATE INDEX idx_usuarios_roles_usuario ON usuarios_roles(usuario_id);;
-CREATE INDEX idx_usuarios_roles_rol ON usuarios_roles(rol_id);;
-
-CREATE INDEX idx_permisos_nombre ON permisos(nombre);;
-CREATE INDEX idx_roles_nombre ON roles(nombre);;
 
 -- Tabla: modelos (Catálogo de modelos pertenecientes a una marca)
 CREATE TABLE modelos (
@@ -124,10 +130,10 @@ CREATE INDEX idx_products_modelo_id ON products(modelo_id);;
 CREATE INDEX idx_products_category_id ON products(category_id);;
 CREATE INDEX idx_products_title ON products(title);;
 
--- Tabla: orders (Órdenes de compra)
+-- Tabla: orders (Órdenes de compra con referencia cruzada al esquema auth)
 CREATE TABLE orders (
                         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                        user_id UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+                        user_id UUID REFERENCES auth.usuarios(id) ON DELETE SET NULL,
                         total_amount DECIMAL(10, 2) NOT NULL,
                         status VARCHAR(30) NOT NULL DEFAULT 'pending',
                         shipping_address TEXT NOT NULL,
@@ -154,7 +160,7 @@ DROP FUNCTION IF EXISTS sp_obtener_marcas();;
 DROP FUNCTION IF EXISTS sp_registrar_marca(VARCHAR, VARCHAR, VARCHAR);;
 DROP FUNCTION IF EXISTS sp_registrar_modelo(UUID, VARCHAR, TEXT, INT);;
 
--- SP para Registrar Usuario (Adaptado para recibir rolId y gestionar usuarios_roles)
+-- SP para Registrar Usuario apuntando al esquema auth
 CREATE OR REPLACE FUNCTION sp_registrar_usuario(
     p_username VARCHAR,
     p_email VARCHAR,
@@ -165,27 +171,27 @@ DECLARE
 v_usuario_id UUID;
     v_nombre_rol VARCHAR;
 BEGIN
-    -- 1. Obtener el nombre del rol a partir del UUID proporcionado
-SELECT nombre INTO v_nombre_rol FROM roles WHERE id = p_rol_id;
+    -- 1. Obtener el nombre del rol del esquema auth
+SELECT nombre INTO v_nombre_rol FROM auth.roles WHERE id = p_rol_id;
 
 IF v_nombre_rol IS NULL THEN
         RAISE EXCEPTION 'El rol con ID % no existe', p_rol_id;
 END IF;
 
-    -- 2. Insertar el usuario principal
-INSERT INTO usuarios (username, email, password, rol)
+    -- 2. Insertar en auth.usuarios
+INSERT INTO auth.usuarios (username, email, password, rol)
 VALUES (p_username, p_email, p_password, v_nombre_rol)
     RETURNING id INTO v_usuario_id;
 
--- 3. Insertar la relación en la tabla intermedia usuarios_roles
-INSERT INTO usuarios_roles (usuario_id, rol_id)
+-- 3. Insertar en auth.usuarios_roles
+INSERT INTO auth.usuarios_roles (usuario_id, rol_id)
 VALUES (v_usuario_id, p_rol_id);
 
 RETURN v_usuario_id;
 END;
 $$ LANGUAGE plpgsql;;
 
--- SP para Buscar Usuario por Username (Login) - Corregido con casteo explícito a TEXT[]
+-- SP para Buscar Usuario por Username apuntando al esquema auth
 CREATE OR REPLACE FUNCTION sp_obtener_usuario_por_username(
     p_username VARCHAR
 ) RETURNS TABLE (
@@ -207,10 +213,10 @@ SELECT
     u.rol,
     u.estado,
     COALESCE(ARRAY_AGG(DISTINCT p.nombre::TEXT) FILTER (WHERE p.nombre IS NOT NULL), ARRAY[]::TEXT[]) AS permisos
-FROM usuarios u
-         LEFT JOIN usuarios_roles ur ON u.id = ur.usuario_id
-         LEFT JOIN roles_permisos rp ON ur.rol_id = rp.rol_id
-         LEFT JOIN permisos p ON rp.permiso_id = p.id
+FROM auth.usuarios u
+         LEFT JOIN auth.usuarios_roles ur ON u.id = ur.usuario_id
+         LEFT JOIN auth.roles_permisos rp ON ur.rol_id = rp.rol_id
+         LEFT JOIN auth.permisos p ON rp.permiso_id = p.id
 WHERE u.username = p_username AND u.estado = 'ACTIVO'
 GROUP BY u.id, u.username, u.email, u.password, u.rol, u.estado;
 END;
@@ -270,9 +276,9 @@ $$ LANGUAGE plpgsql;;
 -- ==========================================
 -- 4. DATOS INICIALES DE PRUEBA (DML)
 -- ==========================================
-INSERT INTO usuarios (username, email, password, rol)
+INSERT INTO auth.usuarios (username, email, password, rol)
 VALUES ('admin', 'admin@empresa.com', '$2a$10$E2UPv7arXnm918P10lO.2OHY8Lxe8v2V4a9R3Xm5a3D2C1B0A9Z8y', 'ROLE_ADMIN');;
-INSERT INTO usuarios (username, email, password, rol)
+INSERT INTO auth.usuarios (username, email, password, rol)
 VALUES ('daniel', 'daniel@empresa.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ROLE_ADMIN');;
 
 -- Datos iniciales de prueba para marcas
@@ -283,59 +289,53 @@ VALUES
     ('Renault', 'https://ejemplo.com/renault.png', 'Francia');;
 
 -- Datos iniciales de prueba para roles
-INSERT INTO roles (nombre, descripcion) VALUES
-                                            ('ROLE_ADMIN', 'Administrador con acceso total al sistema'),
-                                            ('ROLE_USER', 'Usuario estándar del sistema');;
+INSERT INTO auth.roles (nombre, descripcion) VALUES
+                                                 ('ROLE_ADMIN', 'Administrador con acceso total al sistema'),
+                                                 ('ROLE_USER', 'Usuario estándar del sistema');;
 
 -- Inserción de todos los permisos CRUD (Productos, Categorías, Marcas y Modelos)
-INSERT INTO permisos (nombre, descripcion) VALUES
-                                               -- Módulo Productos
-                                               ('PRODUCTS_READ', 'Consultar y listar productos'),
-                                               ('PRODUCTS_CREATE', 'Crear nuevos productos'),
-                                               ('PRODUCTS_UPDATE', 'Actualizar productos existentes'),
-                                               ('PRODUCTS_DELETE', 'Eliminar productos'),
-
-                                               -- Módulo Categorías
-                                               ('CATEGORIES_READ', 'Consultar y listar categorías de productos'),
-                                               ('CATEGORIES_CREATE', 'Crear nuevas categorías de productos'),
-                                               ('CATEGORIES_UPDATE', 'Actualizar categorías existentes'),
-                                               ('CATEGORIES_DELETE', 'Eliminar categorías de productos'),
-
-                                               -- Módulo Marcas (NUEVO)
-                                               ('BRANDS_READ', 'Consultar y listar marcas de vehículos'),
-                                               ('BRANDS_CREATE', 'Crear nuevas marcas de vehículos'),
-                                               ('BRANDS_UPDATE', 'Actualizar marcas existentes'),
-                                               ('BRANDS_DELETE', 'Eliminar marcas de vehículos'),
-
-                                               ('MODELS_READ', 'Consultar y listar modelos de vehículos'),
-                                               ('MODELS_CREATE', 'Crear nuevos modelos de vehículos'),
-                                               ('MODELS_UPDATE', 'Actualizar modelos existentes'),
-                                               ('MODELS_DELETE', 'Eliminar modelos de vehículos')
+INSERT INTO auth.permisos (nombre, descripcion) VALUES
+                                                    ('PRODUCTS_READ', 'Consultar y listar productos'),
+                                                    ('PRODUCTS_CREATE', 'Crear nuevos productos'),
+                                                    ('PRODUCTS_UPDATE', 'Actualizar productos existentes'),
+                                                    ('PRODUCTS_DELETE', 'Eliminar productos'),
+                                                    ('CATEGORIES_READ', 'Consultar y listar categorías de productos'),
+                                                    ('CATEGORIES_CREATE', 'Crear nuevas categorías de productos'),
+                                                    ('CATEGORIES_UPDATE', 'Actualizar categorías existentes'),
+                                                    ('CATEGORIES_DELETE', 'Eliminar categorías de productos'),
+                                                    ('BRANDS_READ', 'Consultar y listar marcas de vehículos'),
+                                                    ('BRANDS_CREATE', 'Crear nuevas marcas de vehículos'),
+                                                    ('BRANDS_UPDATE', 'Actualizar marcas existentes'),
+                                                    ('BRANDS_DELETE', 'Eliminar marcas de vehículos'),
+                                                    ('MODELS_READ', 'Consultar y listar modelos de vehículos'),
+                                                    ('MODELS_CREATE', 'Crear nuevos modelos de vehículos'),
+                                                    ('MODELS_UPDATE', 'Actualizar modelos existentes'),
+                                                    ('MODELS_DELETE', 'Eliminar modelos de vehículos')
     ON CONFLICT (nombre) DO UPDATE
                                 SET descripcion = EXCLUDED.descripcion;;
 
--- 2. Limpiar asociaciones previas de roles_permisos para evitar duplicidades o desfases
-DELETE FROM roles_permisos;;
+-- Limpiar asociaciones previas de roles_permisos
+DELETE FROM auth.roles_permisos;;
 
--- 3. Asignar ABSOLUTAMENTE TODOS los permisos existentes al rol de Administrador (ROLE_ADMIN)
-INSERT INTO roles_permisos (rol_id, permiso_id)
+-- Asignar permisos a ROLE_ADMIN
+INSERT INTO auth.roles_permisos (rol_id, permiso_id)
 SELECT r.id, p.id
-FROM roles r, permisos p
+FROM auth.roles r, auth.permisos p
 WHERE r.nombre = 'ROLE_ADMIN'
     ON CONFLICT (rol_id, permiso_id) DO NOTHING;;
 
--- 4. Asignar EXCLUSIVAMENTE los permisos de lectura (READ) al rol de Usuario estándar (ROLE_USER)
-INSERT INTO roles_permisos (rol_id, permiso_id)
+-- Asignar permisos de lectura a ROLE_USER
+INSERT INTO auth.roles_permisos (rol_id, permiso_id)
 SELECT r.id, p.id
-FROM roles r, permisos p
+FROM auth.roles r, auth.permisos p
 WHERE r.nombre = 'ROLE_USER'
   AND p.nombre IN ('PRODUCTS_READ', 'CATEGORIES_READ', 'BRANDS_READ', 'MODELS_READ')
     ON CONFLICT (rol_id, permiso_id) DO NOTHING;;
 
 -- Vincular usuarios iniciales con el módulo usuarios_roles
-INSERT INTO usuarios_roles (usuario_id, rol_id)
+INSERT INTO auth.usuarios_roles (usuario_id, rol_id)
 SELECT u.id, r.id
-FROM usuarios u, roles r
+FROM auth.usuarios u, auth.roles r
 WHERE u.username IN ('admin', 'daniel') AND r.nombre = 'ROLE_ADMIN';;
 
 -- Datos iniciales de prueba para modelos
@@ -368,7 +368,7 @@ SELECT m.id, c.id, 'Kit de Embrague Hilux', 120.00, 8, 'Kit de embrague reforzad
 FROM modelos m, categories c
 WHERE m.nombre = 'Hilux' AND c.nombre = 'Repuestos Automotrices';;
 
--- Producto sin modelo específico (herramienta multimarca general)
+-- Producto sin modelo específico
 INSERT INTO products (modelo_id, category_id, title, price, stock, description)
 SELECT NULL, c.id, 'Escáner Automotriz OBD2', 45.00, 15, 'Herramienta de diagnóstico multimarca para vehículos modernos.'
 FROM categories c
