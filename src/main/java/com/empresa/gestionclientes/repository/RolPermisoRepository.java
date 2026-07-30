@@ -25,30 +25,30 @@ public class RolPermisoRepository {
 
     public List<RolPermiso> listarAsignaciones() {
         String sql = "SELECT rp.rol_id, r.nombre AS rol_nombre, rp.permiso_id, p.nombre AS permiso_nombre, rp.creado_en " +
-                "FROM roles_permisos rp " +
-                "JOIN roles r ON rp.rol_id = r.id " +
-                "JOIN permisos p ON rp.permiso_id = p.id " +
+                "FROM auth.roles_permisos rp " +
+                "JOIN auth.roles r ON rp.rol_id = r.id " +
+                "JOIN auth.permisos p ON rp.permiso_id = p.id " +
                 "ORDER BY r.nombre ASC, p.nombre ASC";
         return jdbcTemplate.query(sql, rolPermisoRowMapper);
     }
 
     public List<RolPermiso> listarPorRolId(UUID rolId) {
         String sql = "SELECT rp.rol_id, r.nombre AS rol_nombre, rp.permiso_id, p.nombre AS permiso_nombre, rp.creado_en " +
-                "FROM roles_permisos rp " +
-                "JOIN roles r ON rp.rol_id = r.id " +
-                "JOIN permisos p ON rp.permiso_id = p.id " +
+                "FROM auth.roles_permisos rp " +
+                "JOIN auth.roles r ON rp.rol_id = r.id " +
+                "JOIN auth.permisos p ON rp.permiso_id = p.id " +
                 "WHERE rp.rol_id = ? " +
                 "ORDER BY p.nombre ASC";
         return jdbcTemplate.query(sql, rolPermisoRowMapper, rolId);
     }
 
     public void asignarPermiso(UUID rolId, UUID permisoId) {
-        String sql = "INSERT INTO roles_permisos (rol_id, permiso_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
+        String sql = "INSERT INTO auth.roles_permisos (rol_id, permiso_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
         jdbcTemplate.update(sql, rolId, permisoId);
     }
 
     public void revocarPermiso(UUID rolId, UUID permisoId) {
-        String sql = "DELETE FROM roles_permisos WHERE rol_id = ? AND permiso_id = ?";
+        String sql = "DELETE FROM auth.roles_permisos WHERE rol_id = ? AND permiso_id = ?";
         jdbcTemplate.update(sql, rolId, permisoId);
     }
 }

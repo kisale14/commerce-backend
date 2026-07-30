@@ -25,30 +25,30 @@ public class UsuarioRolRepository {
 
     public List<UsuarioRol> listarAsignaciones() {
         String sql = "SELECT ur.usuario_id, u.username, ur.rol_id, r.nombre AS rol_nombre, ur.creado_en " +
-                "FROM usuarios_roles ur " +
-                "JOIN usuarios u ON ur.usuario_id = u.id " +
-                "JOIN roles r ON ur.rol_id = r.id " +
+                "FROM auth.usuarios_roles ur " +
+                "JOIN auth.usuarios u ON ur.usuario_id = u.id " +
+                "JOIN auth.roles r ON ur.rol_id = r.id " +
                 "ORDER BY u.username ASC, r.nombre ASC";
         return jdbcTemplate.query(sql, usuarioRolRowMapper);
     }
 
     public List<UsuarioRol> listarPorUsuarioId(UUID usuarioId) {
         String sql = "SELECT ur.usuario_id, u.username, ur.rol_id, r.nombre AS rol_nombre, ur.creado_en " +
-                "FROM usuarios_roles ur " +
-                "JOIN usuarios u ON ur.usuario_id = u.id " +
-                "JOIN roles r ON ur.rol_id = r.id " +
+                "FROM auth.usuarios_roles ur " +
+                "JOIN auth.usuarios u ON ur.usuario_id = u.id " +
+                "JOIN auth.roles r ON ur.rol_id = r.id " +
                 "WHERE ur.usuario_id = ? " +
                 "ORDER BY r.nombre ASC";
         return jdbcTemplate.query(sql, usuarioRolRowMapper, usuarioId);
     }
 
     public void asignarRolAUsuario(UUID usuarioId, UUID rolId) {
-        String sql = "INSERT INTO usuarios_roles (usuario_id, rol_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
+        String sql = "INSERT INTO auth.usuarios_roles (usuario_id, rol_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
         jdbcTemplate.update(sql, usuarioId, rolId);
     }
 
     public void revocarRolDeUsuario(UUID usuarioId, UUID rolId) {
-        String sql = "DELETE FROM usuarios_roles WHERE usuario_id = ? AND rol_id = ?";
+        String sql = "DELETE FROM auth.usuarios_roles WHERE usuario_id = ? AND rol_id = ?";
         jdbcTemplate.update(sql, usuarioId, rolId);
     }
 }

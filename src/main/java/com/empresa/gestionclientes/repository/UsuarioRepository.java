@@ -39,13 +39,13 @@ public class UsuarioRepository {
 
     // Registrar Usuario y asociar su rol en la tabla intermedia
     public UUID registrarUsuario(String username, String email, String passwordHash, UUID rolId) {
-        // 1. Insertar el usuario en la tabla 'usuarios'
-        String sqlUsuario = "INSERT INTO usuarios (username, email, password, rol) " +
-                "VALUES (?, ?, ?, (SELECT nombre FROM roles WHERE id = ?)) RETURNING id";
+        // 1. Insertar el usuario en la tabla 'auth.usuarios'
+        String sqlUsuario = "INSERT INTO auth.usuarios (username, email, password, rol) " +
+                "VALUES (?, ?, ?, (SELECT nombre FROM auth.roles WHERE id = ?)) RETURNING id";
         UUID usuarioId = jdbcTemplate.queryForObject(sqlUsuario, UUID.class, username, email, passwordHash, rolId);
 
-        // 2. Insertar la relación en la tabla intermedia 'usuarios_roles'
-        String sqlRelacion = "INSERT INTO usuarios_roles (usuario_id, rol_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
+        // 2. Insertar la relación en la tabla intermedia 'auth.usuarios_roles'
+        String sqlRelacion = "INSERT INTO auth.usuarios_roles (usuario_id, rol_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
         jdbcTemplate.update(sqlRelacion, usuarioId, rolId);
 
         return usuarioId;

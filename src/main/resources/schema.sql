@@ -4,18 +4,27 @@
 CREATE SCHEMA IF NOT EXISTS auth;;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";;
 
--- Drops ordenados considerando dependencias de esquemas cruzados
+-- Limpieza total de tablas de negocio (esquema public)
 DROP TABLE IF EXISTS order_items CASCADE;;
 DROP TABLE IF EXISTS orders CASCADE;;
 DROP TABLE IF EXISTS products CASCADE;;
 DROP TABLE IF EXISTS modelos CASCADE;;
 DROP TABLE IF EXISTS marcas CASCADE;;
 DROP TABLE IF EXISTS categories CASCADE;;
+
+-- Limpieza total de tablas de seguridad (esquema auth)
 DROP TABLE IF EXISTS auth.usuarios_roles CASCADE;;
 DROP TABLE IF EXISTS auth.usuarios CASCADE;;
 DROP TABLE IF EXISTS auth.roles CASCADE;;
 DROP TABLE IF EXISTS auth.permisos CASCADE;;
 DROP TABLE IF EXISTS auth.roles_permisos CASCADE;;
+
+-- Limpieza por seguridad de tablas duplicadas erróneas en public (por si quedaron huérfanas)
+DROP TABLE IF EXISTS public.usuarios_roles CASCADE;;
+DROP TABLE IF EXISTS public.usuarios CASCADE;;
+DROP TABLE IF EXISTS public.roles CASCADE;;
+DROP TABLE IF EXISTS public.permisos CASCADE;;
+DROP TABLE IF EXISTS public.roles_permisos CASCADE;;
 
 -- ==========================================
 -- 2. TABLAS (DDL) - MÓDULO AUTH
